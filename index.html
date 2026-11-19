@@ -218,6 +218,11 @@
     </aside>
 </div>
 
+<footer class="bg-white border-t border-slate-200 px-3 py-1 flex items-center justify-center gap-2 text-[11px] text-slate-500 shrink-0">
+    <span data-t="footerText">Like the planner?</span>
+    <button onclick="showDonate()" class="font-semibold text-indigo-600 hover:text-indigo-800">☕ <span data-t="donate">Say thanks</span></button>
+</footer>
+
 <!-- ===== ROOM SETUP MODAL ===== -->
 <div id="setup-modal" class="modal-overlay hidden" onclick="if(event.target===this)hideSetup()">
     <div class="modal-box">
@@ -309,6 +314,21 @@
     </div>
 </div>
 
+<!-- ===== DONATE MODAL ===== -->
+<div id="donate-modal" class="modal-overlay hidden" onclick="if(event.target===this)hideDonate()">
+    <div class="modal-box" style="max-width: 26rem">
+        <div class="px-5 py-4 border-b flex items-center justify-between">
+            <h2 class="text-base font-bold text-slate-900">☕ <span data-t="donate">Say thanks</span></h2>
+            <button onclick="hideDonate()" class="text-slate-400 hover:text-slate-700 text-xl leading-none">✕</button>
+        </div>
+        <div class="p-5 space-y-3">
+            <p class="text-xs text-slate-600" data-t="donateIntro"></p>
+            <div id="donate-list" class="space-y-2"></div>
+            <p class="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2" data-t="donateWarn"></p>
+        </div>
+    </div>
+</div>
+
 <div id="toast" class="hidden fixed bottom-4 right-4 z-[60] bg-slate-900 text-white text-xs font-medium px-3 py-2 rounded-lg shadow-lg"></div>
 
 <script>
@@ -372,7 +392,11 @@ const TR = {
     feedback: 'Feedback', feedbackTitle: 'Message the author', feedbackIntro: 'Anonymous, no sign-up needed. Leave a contact only if you want a reply.',
     feedbackMessage: 'Message', feedbackContact: 'Contact (optional)', feedbackContactPh: 'Telegram @username or email', send: 'Send',
     feedbackSent: 'Thanks! Your message was sent.', feedbackError: 'Could not send the message. Please try again later.',
-    feedbackEmpty: 'Please write a message first.', feedbackCaptcha: 'Please complete the check above the button.'
+    feedbackEmpty: 'Please write a message first.', feedbackCaptcha: 'Please complete the check above the button.',
+    footerText: 'Like the planner?', donate: 'Say thanks',
+    donateIntro: 'The planner is free. If it helped you, you can send a tip in crypto from Telegram Wallet or any other wallet. Thank you!',
+    donateWarn: 'Send only the coin and network shown next to the address, otherwise the transfer will be lost.',
+    copy: 'Copy', copied: 'Address copied', memo: 'Comment / memo'
   },
   ru: {
     appTitle: 'Планировщик комнаты', headerHint: 'Перетаскивайте · R поворот · D копия · Del удалить · M линейка',
@@ -422,7 +446,11 @@ const TR = {
     feedback: 'Написать', feedbackTitle: 'Написать автору', feedbackIntro: 'Анонимно, без регистрации. Оставьте контакт, только если хотите получить ответ.',
     feedbackMessage: 'Сообщение', feedbackContact: 'Контакт (необязательно)', feedbackContactPh: 'Telegram @username или email', send: 'Отправить',
     feedbackSent: 'Спасибо! Сообщение отправлено.', feedbackError: 'Не удалось отправить сообщение. Попробуйте позже.',
-    feedbackEmpty: 'Сначала напишите сообщение.', feedbackCaptcha: 'Пройдите проверку над кнопкой.'
+    feedbackEmpty: 'Сначала напишите сообщение.', feedbackCaptcha: 'Пройдите проверку над кнопкой.',
+    footerText: 'Нравится планировщик?', donate: 'Отблагодарить',
+    donateIntro: 'Планировщик бесплатный. Если он вам помог, можно отправить чаевые в крипте из Telegram Wallet или любого другого кошелька. Спасибо!',
+    donateWarn: 'Отправляйте только ту монету и в той сети, что указаны рядом с адресом, иначе перевод потеряется.',
+    copy: 'Копировать', copied: 'Адрес скопирован', memo: 'Комментарий / memo'
   },
   es: {
     appTitle: 'Planificador de habitaciones', headerHint: 'Arrastra para mover · R girar · D duplicar · Supr eliminar · M medir',
@@ -472,7 +500,11 @@ const TR = {
     feedback: 'Opinión', feedbackTitle: 'Escribir al autor', feedbackIntro: 'Anónimo, sin registro. Deja un contacto solo si quieres respuesta.',
     feedbackMessage: 'Mensaje', feedbackContact: 'Contacto (opcional)', feedbackContactPh: 'Telegram @usuario o email', send: 'Enviar',
     feedbackSent: '¡Gracias! Tu mensaje fue enviado.', feedbackError: 'No se pudo enviar el mensaje. Inténtalo más tarde.',
-    feedbackEmpty: 'Escribe un mensaje primero.', feedbackCaptcha: 'Completa la verificación encima del botón.'
+    feedbackEmpty: 'Escribe un mensaje primero.', feedbackCaptcha: 'Completa la verificación encima del botón.',
+    footerText: '¿Te gusta el planificador?', donate: 'Dar las gracias',
+    donateIntro: 'El planificador es gratis. Si te ha sido útil, puedes enviar una propina en cripto desde Telegram Wallet o cualquier otra billetera. ¡Gracias!',
+    donateWarn: 'Envía solo la moneda y la red indicadas junto a la dirección; de lo contrario, la transferencia se perderá.',
+    copy: 'Copiar', copied: 'Dirección copiada', memo: 'Comentario / memo'
   }
 };
 const LANGS = ['en', 'ru', 'es'];
@@ -1575,7 +1607,7 @@ window.addEventListener('keydown', e => {
     const mod = e.ctrlKey || e.metaKey;
     if (mod && e.code === 'KeyS') { e.preventDefault(); saveToBrowser(); return; }
     if (mod && e.code === 'KeyE') { e.preventDefault(); exportJSON(); return; }
-    const openModal = ['setup-modal', 'catalog-modal', 'custom-modal', 'feedback-modal'].find(id => !$(id).classList.contains('hidden'));
+    const openModal = ['setup-modal', 'catalog-modal', 'custom-modal', 'feedback-modal', 'donate-modal'].find(id => !$(id).classList.contains('hidden'));
     if (openModal) {
         if (e.key === 'Escape') { $(openModal).classList.add('hidden'); }
         return;
@@ -2081,6 +2113,34 @@ function showCustomForm() {
     setTimeout(() => $('cust-name').focus(), 50);
 }
 function hideCustomForm() { $('custom-modal').classList.add('hidden'); }
+
+// ===== DONATE =====
+const DONATE_WALLETS = [
+    { label: 'USDT · TRON (TRC20)', address: 'TG7aczAvVsMDsGJGnMqpqezuMwfzyDbYgs', memo: '' },
+];
+
+function showDonate() {
+    $('donate-list').innerHTML = DONATE_WALLETS.map((w, i) => `
+        <div class="border border-slate-200 rounded-lg p-2.5">
+            <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="text-xs font-bold text-slate-800">${esc(w.label)}</span>
+                <button class="btn btn-secondary" onclick="copyDonate(${i}, 'address')">${esc(t('copy'))}</button>
+            </div>
+            <div class="font-mono text-[11px] text-slate-600 break-all select-all">${esc(w.address)}</div>
+            ${w.memo ? `
+            <div class="flex items-center justify-between gap-2 mt-2">
+                <span class="text-[11px] text-slate-500">${esc(t('memo'))}: <span class="font-mono text-slate-700 select-all">${esc(w.memo)}</span></span>
+                <button class="btn btn-secondary" onclick="copyDonate(${i}, 'memo')">${esc(t('copy'))}</button>
+            </div>` : ''}
+        </div>`).join('');
+    $('donate-modal').classList.remove('hidden');
+}
+
+function hideDonate() { $('donate-modal').classList.add('hidden'); }
+
+function copyDonate(i, field) {
+    navigator.clipboard.writeText(DONATE_WALLETS[i][field]).then(() => toast(t('copied')), () => {});
+}
 
 // ===== FEEDBACK =====
 const feedback = { openedAt: 0, captcha: null, widgetId: null, sending: false };
