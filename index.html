@@ -219,6 +219,7 @@
 </div>
 
 <footer class="bg-white border-t border-slate-200 px-3 py-1 flex items-center justify-center gap-2 text-[11px] text-slate-500 shrink-0">
+    <span id="visit-counter" class="hidden font-mono text-slate-400 cursor-default"></span>
     <span data-t="footerText">Like the planner?</span>
     <button onclick="showDonate()" class="font-semibold text-indigo-600 hover:text-indigo-800">☕ <span data-t="donate">Say thanks</span></button>
 </footer>
@@ -396,7 +397,7 @@ const TR = {
     footerText: 'Like the planner?', donate: 'Say thanks',
     donateIntro: 'The planner is free. If it helped you, you can send a tip in crypto from Telegram Wallet or any other wallet. Thank you!',
     donateWarn: 'Send only the coin and network shown next to the address, otherwise the transfer will be lost.',
-    copy: 'Copy', copied: 'Address copied', memo: 'Comment / memo'
+    copy: 'Copy', copied: 'Address copied', memo: 'Comment / memo', viewsLabel: 'Views', visitorsLabel: 'Visitors'
   },
   ru: {
     appTitle: 'Планировщик комнаты', headerHint: 'Перетаскивайте · R поворот · D копия · Del удалить · M линейка',
@@ -450,7 +451,7 @@ const TR = {
     footerText: 'Нравится планировщик?', donate: 'Отблагодарить',
     donateIntro: 'Планировщик бесплатный. Если он вам помог, можно отправить чаевые в крипте из Telegram Wallet или любого другого кошелька. Спасибо!',
     donateWarn: 'Отправляйте только ту монету и в той сети, что указаны рядом с адресом, иначе перевод потеряется.',
-    copy: 'Копировать', copied: 'Адрес скопирован', memo: 'Комментарий / memo'
+    copy: 'Копировать', copied: 'Адрес скопирован', memo: 'Комментарий / memo', viewsLabel: 'Просмотры', visitorsLabel: 'Посетители'
   },
   es: {
     appTitle: 'Planificador de habitaciones', headerHint: 'Arrastra para mover · R girar · D duplicar · Supr eliminar · M medir',
@@ -504,7 +505,7 @@ const TR = {
     footerText: '¿Te gusta el planificador?', donate: 'Dar las gracias',
     donateIntro: 'El planificador es gratis. Si te ha sido útil, puedes enviar una propina en cripto desde Telegram Wallet o cualquier otra billetera. ¡Gracias!',
     donateWarn: 'Envía solo la moneda y la red indicadas junto a la dirección; de lo contrario, la transferencia se perderá.',
-    copy: 'Copiar', copied: 'Dirección copiada', memo: 'Comentario / memo'
+    copy: 'Copiar', copied: 'Dirección copiada', memo: 'Comentario / memo', viewsLabel: 'Vistas', visitorsLabel: 'Visitantes'
   }
 };
 const LANGS = ['en', 'ru', 'es'];
@@ -1932,6 +1933,7 @@ function setLang(l) {
     if (tplKey) room.name = t('tpl_' + tplKey);
     else if (defaultName) room.name = t('newRoom');
     refreshAll();
+    renderCounter();
     if (!$('catalog-modal').classList.contains('hidden')) renderCatalog();
     if (!$('setup-modal').classList.contains('hidden')) renderSetupTemplates();
     markDirty();
@@ -2142,6 +2144,32 @@ function copyDonate(i, field) {
     navigator.clipboard.writeText(DONATE_WALLETS[i][field]).then(() => toast(t('copied')), () => {});
 }
 
+// ===== VISIT COUNTER =====
+let visitTotals = null;
+
+async function trackVisit() {
+    const today = new Date().toISOString().slice(0, 10);
+    let newVisitor = false;
+    try {
+        newVisitor = localStorage.getItem(LS_VISIT_DAY) !== today;
+        localStorage.setItem(LS_VISIT_DAY, today);
+    } catch {}
+    try {
+        const res = await fetch('/api/hit', { method: 'POST', body: JSON.stringify({ newVisitor }) });
+        if (!res.ok) return;
+        visitTotals = await res.json();
+        renderCounter();
+    } catch {}
+}
+
+function renderCounter() {
+    const el = $('visit-counter');
+    if (!visitTotals) return;
+    el.textContent = `👁 ${visitTotals.views.toLocaleString()}`;
+    el.title = `${t('viewsLabel')}: ${visitTotals.views} · ${t('visitorsLabel')}: ${visitTotals.visitors}`;
+    el.classList.remove('hidden');
+}
+
 // ===== FEEDBACK =====
 const feedback = { openedAt: 0, captcha: null, widgetId: null, sending: false };
 
@@ -2226,6 +2254,7 @@ function addCustomItem() {
 // ===== PERSISTENCE =====
 const LS_AUTO = 'roomplanner_autosave_v1';
 const LS_SLOTS = 'roomplanner_slots_v1';
+const LS_VISIT_DAY = 'roomplanner_visit_day';
 
 function serialize() {
     return {
@@ -2799,6 +2828,7 @@ function init() {
     setLang(lang);
     if (!restored) showSetup(true);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+    trackVisit();
 }
 init();
 </script>
