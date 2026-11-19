@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Планировщик комнаты Мамад 300×330 см</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+        }
+        .font-mono-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        canvas {
+            touch-action: none;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        /* Кастомный скроллбар для панели */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen flex flex-col overflow-hidden select-none">
+
+    <!-- Верхняя панель: Заголовок и пресеты -->
+    <header class="bg-white border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0 shadow-sm z-10">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                1:1
+            </div>
+            <div>
+                <h1 class="text-sm sm:text-base font-bold text-slate-900 leading-tight">Планировщик Мамада <span class="font-mono-num text-blue-600">300 × 330 см</span></h1>
+                <p class="text-xs text-slate-500 hidden sm:block">Точный масштаб • Перетаскивайте мебель мышью или пальцем, <kbd class="px-1 py-0.5 bg-slate-100 border rounded text-[10px]">R</kbd> — поворот</p>
+            </div>
+        </div>
+
+        <!-- Кнопки пресетов -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 max-w-full" id="presets-container">
+            <button onclick="applyPreset(1)" data-preset="1" class="preset-btn px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition whitespace-nowrap">
+                1. Шкаф 3 секции в ряд
+            </button>
+            <button onclick="applyPreset(2)" data-preset="2" class="preset-btn px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition whitespace-nowrap">
+                2. Стол у двери (145)
+            </button>
+            <button onclick="applyPreset(3)" data-preset="3" class="preset-btn px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition whitespace-nowrap">
+                3. Кровать 165 см!
+            </button>
+            <button onclick="applyPreset(4)" data-preset="4" class="preset-btn px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition whitespace-nowrap">
+                4. Угловой шкаф
+            </button>
+            <button onclick="applyPreset(5)" data-preset="5" class="preset-btn px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition whitespace-nowrap">
+                5. Разделенный шкаф
+            </button>
+        </div>
+    </header>
+
+    <!-- Основная рабочая область -->
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        
+        <!-- Холст чертежа -->
+        <main class="flex-1 relative bg-[#f8fafc] flex flex-col overflow-hidden" id="canvas-wrapper">
+            <canvas id="blueprintCanvas" class="w-full h-full block"></canvas>
+
+            <!-- Плавающая панель действий для выбранного объекта -->
+            <div id="selection-toolbar" class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur border border-slate-200 shadow-lg rounded-xl px-3 py-2 flex items-center gap-3 transition-all duration-200">
+                <div class="flex items-center gap-2">
+                    <span id="selected-color-dot" class="w-3 h-3 rounded-full bg-blue-600"></span>
+                    <span id="selected-name" class="text-xs font-semibold text-slate-800 whitespace-nowrap">Кровать (145×210)</span>
+                </div>
+                <div class="h-4 w-px bg-slate-200"></div>
+                <button onclick="rotateSelected()" class="flex items-center gap-1.5 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-medium rounded-lg transition shadow-sm">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Повернуть 90°
+                </button>
+                <div class="hidden sm:flex items-center gap-1 text-[11px] font-mono-num text-slate-500">
+                    <span>X:<b id="sel-x" class="text-slate-700">0</b></span>
+                    <span>Y:<b id="sel-y" class="text-slate-700">0</b></span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Боковая панель настроек и проверок -->
+        <aside class="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col max-h-[42vh] lg:max-h-full overflow-y-auto shrink-0">
+            
+            <!-- Статус-блок проверок безопасности и эргономики -->
+            <div class="p-3.5 border-b border-slate-200 bg-slate-50/70">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500">Проверка эргономики и Мамада</h2>
+                    <span id="status-badge" class="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 text-emerald-800">ОК</span>
+                </div>
+                <div id="alerts-list" class="space-y-1.5 text-xs">
+                    <!-- Динамические предупреждения -->
+                </div>
+            </div>
+
+            <!-- Параметры комнаты и мебели -->
+            <div class="p-3.5 space-y-4">
+                
+                <!-- Размер кровати -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Размер кровати</label>
+                    <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-lg">
+                        <button onclick="setBedSize(145)" id="btn-bed-145" class="py-1.5 px-2 text-xs font-medium rounded-md transition bg-white text-blue-700 shadow-sm">
+                            145 × 210 см
+                        </button>
+                        <button onclick="setBedSize(165)" id="btn-bed-165" class="py-1.5 px-2 text-xs font-medium rounded-md transition text-slate-600 hover:text-slate-900">
+                            165 × 210 см
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Тип дверок для шкафов -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Секции шкафа (3 шт. по 75×60 см)</label>
+                    <div class="grid grid-cols-2 gap-1.5 bg-slate-100 p-1 rounded-lg">
+                        <button onclick="setWardrobeType('hinged')" id="btn-wardrobe-hinged" class="py-1.5 px-2 text-xs font-medium rounded-md transition bg-white text-blue-700 shadow-sm">
+                            Распашные (+50 см)
+                        </button>
+                        <button onclick="setWardrobeType('sliding')" id="btn-wardrobe-sliding" class="py-1.5 px-2 text-xs font-medium rounded-md transition text-slate-600 hover:text-slate-900">
+                            Шкафы-купе (0 см)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Входная дверь -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="text-xs font-semibold text-slate-700">Дверь (отступ 215 см слева)</label>
+                        <span class="text-xs font-mono-num font-semibold text-blue-600" id="door-width-label">80 см (ост. 5 см)</span>
+                    </div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-[11px] text-slate-500">Ширина:</span>
+                        <input type="range" id="door-width-slider" min="70" max="85" step="5" value="80" oninput="setDoorWidth(this.value)" class="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                    </div>
+                    <select id="door-swing-select" onchange="setDoorSwing(this.value)" class="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-2 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="out">Открывается наружу (стандарт Мамада)</option>
+                        <option value="in-left">Открывается внутрь (петли слева)</option>
+                        <option value="in-right">Открывается внутрь (петли справа)</option>
+                    </select>
+                </div>
+
+                <!-- Переключатели отображения и привязки -->
+                <div class="pt-1 border-t border-slate-100 space-y-2.5">
+                    <label class="flex items-center justify-between cursor-pointer">
+                        <span class="text-xs text-slate-700">Зона открывания окна Мамада (95 см)</span>
+                        <input type="checkbox" id="toggle-window-zone" checked onchange="draw()" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                    </label>
+
+                    <label class="flex items-center justify-between cursor-pointer">
+                        <span class="text-xs text-slate-700">Магнитная привязка (стены / шаг 5 см)</span>
+                        <input type="checkbox" id="toggle-snap" checked class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                    </label>
+
+                    <label class="flex items-center justify-between cursor-pointer">
+                        <span class="text-xs text-slate-700">Показывать расстояния до стен</span>
+                        <input type="checkbox" id="toggle-distances" checked onchange="draw()" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                    </label>
+                </div>
+
+                <!-- Сохранение и загрузка расстановки -->
+                <div class="pt-2 border-t border-slate-100 space-y-2">
+                    <div class="text-xs font-semibold text-slate-700">Сохранение расстановки</div>
+                    <div class="grid grid-cols-2 gap-1.5">
+                        <button onclick="saveLayoutToStorage()" class="py-1.5 px-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium rounded-lg transition shadow-sm">
+                            Сохранить план
+                        </button>
+                        <button onclick="loadLayoutFromStorage()" class="py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-medium rounded-lg transition border border-slate-200">
+                            Загрузить план
+                        </button>
+                    </div>
+                    <div id="save-toast" class="hidden text-[11px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1 text-center">
+                        Расстановка сохранена!
+                    </div>
+                </div>
+
+                <!-- Легенда -->
+                <div class="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-1">
+                    <div class="font-semibold text-slate-600">Обозначения на чертеже:</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 inline-block bg-blue-100 border border-blue-500 rounded-xs"></span> Кровать (подушки = изголовье)</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 inline-block bg-amber-100 border border-amber-600 rounded-xs"></span> Секции шкафа 75×60 см (отдельные)</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 inline-block bg-emerald-100 border border-emerald-600 rounded-xs"></span> Стол 120×60 + зона стула 60 см</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 inline-block bg-rose-100 border border-dashed border-rose-500 rounded-xs"></span> Радиус открывания окна Мамада / двери</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+<script>
+/**
+ * Точный архитектурный планировщик комнаты Мамад (300 x 330 см)
+ */
+
+const ROOM_W = 300; // см
+const ROOM_H = 330; // см
+const WALL_THICK = 22; // см
+
+// Окно Мамада на верхней стене (Y = 0)
+const WINDOW = {
+    x: 105,          // отступ слева 105 см
+    width: 101,      // 300 - 105 - 94 = 101 см
+    rightGap: 94,    // отступ справа 94 см
+    swingDepth: 95   // глубина открывания стальной створки внутрь комнаты (см)
+};
+
+// Дверь на нижней стене (Y = 330)
+const DOOR = {
+    x: 215,          // отступ слева 215 см
+    width: 80,       // стандартное полотно 80 см
+    swing: 'out'     // 'out' | 'in-left' | 'in-right'
+};
+
+// Состояние мебели (три независимые секции шкафа)
+const bed = {
+    id: 'bed',
+    name: 'Кровать',
+    baseW: 145,
+    baseH: 210,
+    x: 90,
+    y: 0,
+    rotation: 90,
+    color: '#2563eb',
+    fill: '#dbeafe',
+    stroke: '#3b82f6'
+};
+
+const w1 = {
+    id: 'w1',
+    name: 'Секция шкафа 1',
+    baseW: 75,
+    baseH: 60,
+    x: 0,
+    y: 0,
+    rotation: 270,
+    type: 'hinged',
+    color: '#d97706',
+    fill: '#fef3c7',
+    stroke: '#d97706'
+};
+
+const w2 = {
+    id: 'w2',
+    name: 'Секция шкафа 2',
+    baseW: 75,
+    baseH: 60,
+    x: 0,
+    y: 75,
+    rotation: 270,
+    type: 'hinged',
+    color: '#d97706',
+    fill: '#fef3c7',
+    stroke: '#d97706'
+};
+
+const w3 = {
+    id: 'w3',
+    name: 'Секция шкафа 3',
+    baseW: 75,
+    baseH: 60,
+    x: 0,
+    y: 150,
+    rotation: 270,
+    type: 'hinged',
+    color: '#d97706',
+    fill: '#fef3c7',
+    stroke: '#d97706'
+};
+
+const desk = {
+    id: 'desk',
+    name: 'Стол + стул',
+    baseW: 120,
+    baseH: 60,
+    x: 85,
+    y: 270,
+    rotation: 180,
+    chairDepth: 60,
+    color: '#059669',
+    fill: '#d1fae5',
+    stroke: '#10b981'
+};
+
+const items = [w1, w2, w3, bed, desk];
+let selectedItem = bed;
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+let scale = 1.5;
+let offsetX = 50;
+let offsetY = 50;
+
+const canvas = document.getElementById('blueprintCanvas');
+const ctx = canvas.getContext('2d');
+const wrapper = document.getElementById('canvas-wrapper');
+
+function toPxX(cmX) { return offsetX + cmX * scale; }
+function toPxY(cmY) { return offsetY + cmY * scale; }
+function toCmX(pxX) { return (pxX - offsetX) / scale; }
+function toCmY(pxY) { return (pxY - offsetY) / scale; }
+
+function getItemRect(item) {
+    const isRotated = item.rotation === 90 || item.rotation === 270;
+    return {
+        x: item.x,
+        y: item.y,
+        w: isRotated ? item.baseH : item.baseW,
+        h: isRotated ? item.baseW : item.baseH
+    };
+}
+
+function resizeCanvas() {
+    if (!wrapper) return;
+    const rect = wrapper.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const padX = 85;
+    const padY = 95;
+    const availW = Math.max(100, rect.width - padX * 2);
+    const availH = Math.max(100, rect.height - padY * 2 - 30);
+
+    scale = Math.min(availW / ROOM_W, availH / ROOM_H);
+    offsetX = (rect.width - ROOM_W * scale) / 2;
+    offsetY = (rect.height - ROOM_H * scale) / 2 - 12;
+
+    draw();
+}
+
+function draw() {
+    const rect = wrapper.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+
+    drawGrid();
+    drawRoomWalls();
+    drawWindowZone();
+    drawDoorSwing();
+    
+    const sortedItems = [...items].sort((a, b) => (a === selectedItem ? 1 : b === selectedItem ? -1 : 0));
+    sortedItems.forEach(item => drawFurniture(item));
+
+    if (document.getElementById('toggle-distances').checked && selectedItem) {
+        drawDistances(selectedItem);
+    }
+
+    updateToolbar();
+    runErgonomicsCheck();
+}
+
+/**
+ * Отрисовка линий расстояний от выбранного предмета до стен
+ */
+function drawDistances(item) {
+    const r = getItemRect(item);
+    const x0 = toPxX(0);
+    const y0 = toPxY(0);
+    const x1 = toPxX(ROOM_W);
+    const y1 = toPxY(ROOM_H);
+    const px = toPxX(r.x);
+    const py = toPxY(r.y);
+    const pw = r.w * scale;
+    const ph = r.h * scale;
+
+    ctx.save();
+    ctx.strokeStyle = '#2563eb';
+    ctx.fillStyle = '#1d4ed8';
+    ctx.lineWidth = 1;
+    ctx.font = '500 10px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Расстояние слева
+    if (r.x > 0) {
+        const midY = py + ph / 2;
+        ctx.beginPath();
+        ctx.moveTo(x0, midY);
+        ctx.lineTo(px, midY);
+        ctx.setLineDash([2, 2]);
+        ctx.stroke();
+        ctx.fillText(`${Math.round(r.x)} см`, x0 + (px - x0) / 2, midY - 10);
+    }
+
+    // Расстояние сверху
+    if (r.y > 0) {
+        const midX = px + pw / 2;
+        ctx.beginPath();
+        ctx.moveTo(midX, y0);
+        ctx.lineTo(midX, py);
+        ctx.setLineDash([2, 2]);
+        ctx.stroke();
+        ctx.fillText(`${Math.round(r.y)} см`, midX + 22, y0 + (py - y0) / 2);
+    }
+
+    ctx.restore();
+}
+
+function drawGrid() {
+    ctx.save();
+    // Фон комнаты
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(toPxX(0), toPxY(0), ROOM_W * scale, ROOM_H * scale);
+
+    // Сетка каждые 10 см и 50 см
+    for (let x = 0; x <= ROOM_W; x += 10) {
+        ctx.beginPath();
+        ctx.moveTo(toPxX(x), toPxY(0));
+        ctx.lineTo(toPxX(x), toPxY(ROOM_H));
+        ctx.strokeStyle = x % 50 === 0 ? '#e2e8f0' : '#f1f5f9';
+        ctx.lineWidth = x % 50 === 0 ? 1 : 0.6;
+        ctx.stroke();
+    }
+    for (let y = 0; y <= ROOM_H; y += 10) {
+        ctx.beginPath();
+        ctx.moveTo(toPxX(0), toPxY(y));
+        ctx.lineTo(toPxX(ROOM_W), toPxY(y));
+        ctx.strokeStyle = y % 50 === 0 ? '#e2e8f0' : '#f1f5f9';
+        ctx.lineWidth = y % 50 === 0 ? 1 : 0.6;
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawRoomWalls() {
+    ctx.save();
+    const x0 = toPxX(0);
+    const y0 = toPxY(0);
+    const x1 = toPxX(ROOM_W);
+    const y1 = toPxY(ROOM_H);
+    const wt = WALL_THICK * scale;
+
+    // Бетонные стены Мамада
+    ctx.fillStyle = '#334155';
+    // Левая стена
+    ctx.fillRect(x0 - wt, y0 - wt, wt, ROOM_H * scale + wt * 2);
+    // Правая стена
+    ctx.fillRect(x1, y0 - wt, wt, ROOM_H * scale + wt * 2);
+    // Верхняя стена (до окна и после окна)
+    ctx.fillRect(x0 - wt, y0 - wt, WINDOW.x * scale + wt, wt);
+    ctx.fillRect(toPxX(WINDOW.x + WINDOW.width), y0 - wt, WINDOW.rightGap * scale + wt, wt);
+    // Нижняя стена (до двери и после двери)
+    ctx.fillRect(x0 - wt, y1, DOOR.x * scale + wt, wt);
+    const rightRem = Math.max(0, ROOM_W - DOOR.x - DOOR.width);
+    ctx.fillRect(toPxX(DOOR.x + DOOR.width), y1, rightRem * scale + wt, wt);
+
+    // Окно Мамада (стальная рама и стеклопакет)
+    const winX = toPxX(WINDOW.x);
+    const winW = WINDOW.width * scale;
+    ctx.fillStyle = '#bae6fd';
+    ctx.fillRect(winX, y0 - wt * 0.7, winW, wt * 0.7);
+    ctx.strokeStyle = '#0284c7';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(winX, y0 - wt * 0.7, winW, wt * 0.7);
+    // Стальная защитная створка (символически)
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(winX, y0 - wt, winW, wt * 0.3);
+
+    // Внешние размерные линии комнаты
+    ctx.fillStyle = '#475569';
+    ctx.font = '600 11px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+
+    // Ширина 300 см сверху
+    ctx.fillText('300 см', toPxX(ROOM_W / 2), y0 - wt - 18);
+    // Глубина 330 см слева
+    ctx.save();
+    ctx.translate(x0 - wt - 18, toPxY(ROOM_H / 2));
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('330 см', 0, 0);
+    ctx.restore();
+
+    // Подписи отступов окна на верхней стене
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '600 10px "JetBrains Mono", monospace';
+    ctx.fillText('105 см', toPxX(WINDOW.x / 2), y0 - wt / 2 + 3);
+    ctx.fillText('94 см', toPxX(WINDOW.x + WINDOW.width + WINDOW.rightGap / 2), y0 - wt / 2 + 3);
+    ctx.fillStyle = '#0369a1';
+    ctx.fillText(`Окно Мамада (${WINDOW.width} см)`, toPxX(WINDOW.x + WINDOW.width / 2), y0 - wt - 5);
+
+    // Нижняя стена: 215 см слева, ширина двери, остаток справа
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = `600 10px "JetBrains Mono", monospace`;
+    ctx.fillText('215 см', toPxX(DOOR.x / 2), y1 + wt / 2 + 3);
+    if (rightRem > 0) {
+        ctx.fillText(`${rightRem}`, toPxX(DOOR.x + DOOR.width + rightRem / 2), y1 + wt / 2 + 3);
+    }
+
+    ctx.fillStyle = '#475569';
+    ctx.fillText(`Дверь ${DOOR.width} см`, toPxX(DOOR.x + DOOR.width / 2), y1 + wt + 13);
+
+    ctx.restore();
+}
+
+function drawWindowZone() {
+    if (!document.getElementById('toggle-window-zone').checked) return;
+    ctx.save();
+    const x = toPxX(WINDOW.x);
+    const y = toPxY(0);
+    const w = WINDOW.width * scale;
+    const h = WINDOW.swingDepth * scale;
+
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.06)';
+    ctx.fillRect(x, y, w, h);
+
+    ctx.strokeStyle = 'rgba(244, 63, 94, 0.55)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(x, y, w, h);
+
+    // Дуга открывания створки
+    ctx.beginPath();
+    ctx.arc(x, y, Math.min(w, h), 0, Math.PI / 2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#be123c';
+    ctx.font = '500 10px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Зона створки Мамада (95 см)', x + w / 2, y + h - 8);
+    ctx.restore();
+}
+
+function drawDoorSwing() {
+    ctx.save();
+    const xLeft = toPxX(DOOR.x);
+    const xRight = toPxX(DOOR.x + DOOR.width);
+    const yWall = toPxY(ROOM_H);
+    const r = DOOR.width * scale;
+
+    ctx.strokeStyle = '#e11d48';
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.08)';
+    ctx.lineWidth = 1.5;
+
+    if (DOOR.swing === 'out') {
+        // Открывание наружу (вниз за пределы комнаты)
+        const yOut = yWall + WALL_THICK * scale;
+        ctx.beginPath();
+        ctx.moveTo(xLeft, yOut);
+        ctx.lineTo(xLeft, yOut + r * 0.55);
+        ctx.stroke();
+
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.arc(xLeft, yOut, r * 0.55, 0, Math.PI / 2);
+        ctx.stroke();
+    } else if (DOOR.swing === 'in-left') {
+        // Петли слева, открывается внутрь комнаты
+        ctx.beginPath();
+        ctx.moveTo(xLeft, yWall);
+        ctx.lineTo(xLeft, yWall - r);
+        ctx.stroke();
+
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xLeft, yWall);
+        ctx.arc(xLeft, yWall, r, -Math.PI / 2, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    } else if (DOOR.swing === 'in-right') {
+        // Петли справа, открывается внутрь комнаты
+        ctx.beginPath();
+        ctx.moveTo(xRight, yWall);
+        ctx.lineTo(xRight, yWall - r);
+        ctx.stroke();
+
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(xRight, yWall);
+        ctx.arc(xRight, yWall, r, Math.PI, Math.PI * 1.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function drawFurniture(item) {
+    const r = getItemRect(item);
+    const px = toPxX(r.x);
+    const py = toPxY(r.y);
+    const pw = r.w * scale;
+    const ph = r.h * scale;
+    const isSelected = item === selectedItem;
+
+    ctx.save();
+
+    // Зона открывания дверок для шкафов
+    if ((item.id === 'w1' || item.id === 'w2' || item.id === 'w3') && item.type === 'hinged') {
+        const swing = 50 * scale;
+        ctx.fillStyle = 'rgba(217, 119, 6, 0.08)';
+        ctx.strokeStyle = 'rgba(217, 119, 6, 0.5)';
+        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = 1;
+        let sx = px, sy = py, sw = pw, sh = ph;
+        if (item.rotation === 0) { sy = py + ph; sh = swing; }
+        else if (item.rotation === 90) { sx = px - swing; sw = swing; }
+        else if (item.rotation === 180) { sy = py - swing; sh = swing; }
+        else if (item.rotation === 270) { sx = px + pw; sw = swing; }
+        ctx.fillRect(sx, sy, sw, sh);
+        ctx.strokeRect(sx, sy, sw, sh);
+        ctx.setLineDash([]);
+    }
+
+    if (item.id === 'desk') {
+        const chairZone = item.chairDepth * scale;
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.09)';
+        ctx.strokeStyle = 'rgba(16, 185, 129, 0.55)';
+        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = 1;
+        let cx = px, cy = py, cw = pw, ch = ph;
+        if (item.rotation === 0) { cy = py + ph; ch = chairZone; }
+        else if (item.rotation === 90) { cx = px - chairZone; cw = chairZone; }
+        else if (item.rotation === 180) { cy = py - chairZone; ch = chairZone; }
+        else if (item.rotation === 270) { cx = px + pw; cw = chairZone; }
+        ctx.fillRect(cx, cy, cw, ch);
+        ctx.strokeRect(cx, cy, cw, ch);
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = '#a7f3d0';
+        ctx.strokeStyle = '#059669';
+        const chairR = 20 * scale;
+        ctx.beginPath();
+        ctx.arc(cx + cw / 2, cy + ch / 2, chairR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    // Основной корпус
+    ctx.fillStyle = item.fill;
+    ctx.strokeStyle = isSelected ? '#1d4ed8' : item.stroke;
+    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeRect(px, py, pw, ph);
+
+    if (item.id === 'bed') {
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 1;
+        const pMargin = 10 * scale;
+        const pThick = 34 * scale;
+        if (item.rotation === 0) {
+            const pW = (pw - pMargin * 3) / 2;
+            ctx.fillRect(px + pMargin, py + pMargin, pW, pThick);
+            ctx.strokeRect(px + pMargin, py + pMargin, pW, pThick);
+            ctx.fillRect(px + pMargin * 2 + pW, py + pMargin, pW, pThick);
+            ctx.strokeRect(px + pMargin * 2 + pW, py + pMargin, pW, pThick);
+        } else if (item.rotation === 180) {
+            const pW = (pw - pMargin * 3) / 2;
+            ctx.fillRect(px + pMargin, py + ph - pMargin - pThick, pW, pThick);
+            ctx.strokeRect(px + pMargin, py + ph - pMargin - pThick, pW, pThick);
+            ctx.fillRect(px + pMargin * 2 + pW, py + ph - pMargin - pThick, pW, pThick);
+            ctx.strokeRect(px + pMargin * 2 + pW, py + ph - pMargin - pThick, pW, pThick);
+        } else if (item.rotation === 90) {
+            const pH = (ph - pMargin * 3) / 2;
+            ctx.fillRect(px + pw - pMargin - pThick, py + pMargin, pThick, pH);
+            ctx.strokeRect(px + pw - pMargin - pThick, py + pMargin, pThick, pH);
+            ctx.fillRect(px + pw - pMargin - pThick, py + pMargin * 2 + pH, pThick, pH);
+            ctx.strokeRect(px + pw - pMargin - pThick, py + pMargin * 2 + pH, pThick, pH);
+        } else if (item.rotation === 270) {
+            const pH = (ph - pMargin * 3) / 2;
+            ctx.fillRect(px + pMargin, py + pMargin, pThick, pH);
+            ctx.strokeRect(px + pMargin, py + pMargin, pThick, pH);
+            ctx.fillRect(px + pMargin, py + pMargin * 2 + pH, pThick, pH);
+            ctx.strokeRect(px + pMargin, py + pMargin * 2 + pH, pThick, pH);
+        }
+    }
+
+    ctx.fillStyle = '#1e293b';
+    ctx.font = '600 11px "Inter", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const label = `${item.name} (${r.w}×${r.h})`;
+    if (pw < ph && pw < 75) {
+        ctx.save();
+        ctx.translate(px + pw / 2, py + ph / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(label, 0, 0);
+        ctx.restore();
+    } else {
+        ctx.fillText(label, px + pw / 2, py + ph / 2);
+    }
+
+    ctx.restore();
+}
+
+// Проверка эргономики
+function rectsOverlap(a, b) {
+    return a.x < b.x + b.w - 0.5 && a.x + a.w > b.x + 0.5 &&
+           a.y < b.y + b.h - 0.5 && a.y + a.h > b.y + 0.5;
+}
+
+function runErgonomicsCheck() {
+    const alerts = [];
+    const rBed = getItemRect(bed);
+    const rW1 = getItemRect(w1);
+    const rW2 = getItemRect(w2);
+    const rW3 = getItemRect(w3);
+    const rDesk = getItemRect(desk);
+    const wardrobes = [rW1, rW2, rW3];
+
+    // Наложения между секциями и мебелью
+    const allItemsList = [rW1, rW2, rW3, rBed, rDesk];
+    for (let i = 0; i < allItemsList.length; i++) {
+        for (let j = i + 1; j < allItemsList.length; j++) {
+            if (rectsOverlap(allItemsList[i], allItemsList[j])) {
+                alerts.push({ type: 'error', text: 'Предметы мебели пересекаются друг с другом!' });
+                break;
+            }
+        }
+    }
+
+    // Окно Мамада
+    const winZone = { x: WINDOW.x, y: 0, w: WINDOW.width, h: WINDOW.swingDepth };
+    if (rectsOverlap(rW1, winZone) || rectsOverlap(rW2, winZone) || rectsOverlap(rW3, winZone)) {
+        alerts.push({ type: 'error', text: 'Секция шкафа перекрывает окно Мамада!' });
+    }
+
+    // Дверной проем
+    const doorEntryZone = { x: DOOR.x, y: ROOM_H - 60, w: DOOR.width, h: 60 };
+    if (rectsOverlap(rBed, doorEntryZone) || rectsOverlap(rW1, doorEntryZone) || rectsOverlap(rW2, doorEntryZone) || rectsOverlap(rW3, doorEntryZone) || rectsOverlap(rDesk, doorEntryZone)) {
+        alerts.push({ type: 'error', text: 'Мебель блокирует входную дверь!' });
+    }
+
+    const listEl = document.getElementById('alerts-list');
+    const badgeEl = document.getElementById('status-badge');
+
+    if (alerts.length === 0) {
+        badgeEl.className = 'px-2 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-100 text-emerald-800';
+        badgeEl.textContent = 'Отлично';
+        listEl.innerHTML = `<div class="flex items-start gap-2 text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+            <span>✓</span><span>Секции шкафа можно расставлять отдельно. Окно и двери открываются свободно.</span>
+        </div>`;
+    } else {
+        badgeEl.className = 'px-2 py-0.5 text-[11px] font-semibold rounded-full bg-rose-100 text-rose-800';
+        badgeEl.textContent = 'Конфликт';
+        listEl.innerHTML = alerts.map(a => `<div class="flex items-start gap-2 border rounded-lg p-2 text-rose-800 bg-rose-50 border-rose-200"><span class="font-bold">✕</span><span>${a.text}</span></div>`).join('');
+    }
+}
+
+function updateToolbar() {
+    if (!selectedItem) return;
+    const r = getItemRect(selectedItem);
+    document.getElementById('selected-color-dot').style.backgroundColor = selectedItem.color;
+    document.getElementById('selected-name').textContent = `${selectedItem.name} (${r.w}×${r.h})`;
+    document.getElementById('sel-x').textContent = Math.round(r.x);
+    document.getElementById('sel-y').textContent = Math.round(r.y);
+}
+
+function setBedSize(width) {
+    bed.baseW = width;
+    const r = getItemRect(bed);
+    bed.x = Math.max(0, Math.min(ROOM_W - r.w, bed.x));
+    bed.y = Math.max(0, Math.min(ROOM_H - r.h, bed.y));
+
+    const b145 = document.getElementById('btn-bed-145');
+    const b165 = document.getElementById('btn-bed-165');
+    if (width === 145) {
+        b145.className = 'py-1.5 px-2 text-xs font-medium rounded-md transition bg-white text-blue-700 shadow-sm';
+        b165.className = 'py-1.5 px-2 text-xs font-medium rounded-md transition text-slate-600 hover:text-slate-900';
+    } else {
+        b165.className = 'py-1.5 px-2 text-xs font-medium rounded-md transition bg-white text-blue-700 shadow-sm';
+        b145.className = 'py-1.5 px-2 text-xs font-medium rounded-md transition text-slate-600 hover:text-slate-900';
+    }
+    draw();
+}
+
+function setWardrobeType(type) {
+    [w1, w2, w3].forEach(w => w.type = type);
+    const bH = document.getElementById('btn-wardrobe-hinged');
+    const bS = document.getElementById('btn-wardrobe-sliding');
+    if (type === 'hinged') {
+        bH.className = 'py-1.5 px-2 text-xs font-medium rounded-md transition bg-white text-blue-700 shadow-sm';
+        bS.className = 'py-1.5 px-2 text-xs font-medium rounded-md transition text-slate-600 hover:text-slate-900';
+    } else {
+        bS.className = 'py-1.5 px-2 text-xs font-medium rounded-md transition bg-white text-blue-700 shadow-sm';
+        bH.className = 'py-1.5 px-2 text-xs font-medium rounded-md transition text-slate-600 hover:text-slate-900';
+    }
+    draw();
+}
+
+function setDoorSwing(val) {
+    DOOR.swing = val;
+    document.getElementById('door-swing-select').value = val;
+    draw();
+}
+
+function setDoorWidth(val) {
+    DOOR.width = parseInt(val, 10);
+    const rem = ROOM_W - DOOR.x - DOOR.width;
+    document.getElementById('door-width-label').textContent = `${DOOR.width} см (ост. ${rem} см)`;
+    document.getElementById('door-width-slider').value = DOOR.width;
+    draw();
+}
+
+function clearActivePresetHighlight() {
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white', 'border-blue-600');
+        btn.classList.add('bg-slate-50', 'border-slate-200');
+    });
+}
+
+function rotateSelected() {
+    if (!selectedItem) return;
+    selectedItem.rotation = (selectedItem.rotation + 90) % 360;
+    const r = getItemRect(selectedItem);
+    selectedItem.x = Math.max(0, Math.min(ROOM_W - r.w, selectedItem.x));
+    selectedItem.y = Math.max(0, Math.min(ROOM_H - r.h, selectedItem.y));
+    clearActivePresetHighlight();
+    draw();
+}
+
+function getPointerCm(e) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+        x: toCmX(clientX - rect.left),
+        y: toCmY(clientY - rect.top)
+    };
+}
+
+function handlePointerDown(e) {
+    const pt = getPointerCm(e);
+    const ordered = [...items].sort((a, b) => (a === selectedItem ? -1 : b === selectedItem ? 1 : 0));
+    for (const item of ordered) {
+        const r = getItemRect(item);
+        if (pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h) {
+            selectedItem = item;
+            isDragging = true;
+            dragOffsetX = pt.x - r.x;
+            dragOffsetY = pt.y - r.y;
+            draw();
+            return;
+        }
+    }
+}
+
+function handlePointerMove(e) {
+    if (!isDragging || !selectedItem) return;
+    if (e.cancelable) e.preventDefault();
+    const pt = getPointerCm(e);
+    const r = getItemRect(selectedItem);
+
+    let nx = pt.x - dragOffsetX;
+    let ny = pt.y - dragOffsetY;
+
+    if (document.getElementById('toggle-snap').checked) {
+        nx = Math.round(nx / 5) * 5;
+        ny = Math.round(ny / 5) * 5;
+        if (Math.abs(nx) <= 6) nx = 0;
+        if (Math.abs(nx + r.w - ROOM_W) <= 6) nx = ROOM_W - r.w;
+        if (Math.abs(ny) <= 6) ny = 0;
+        if (Math.abs(ny + r.h - ROOM_H) <= 6) ny = ROOM_H - r.h;
+    }
+
+    selectedItem.x = Math.max(0, Math.min(ROOM_W - r.w, nx));
+    selectedItem.y = Math.max(0, Math.min(ROOM_H - r.h, ny));
+    clearActivePresetHighlight();
+    draw();
+}
+
+function handlePointerUp() {
+    isDragging = false;
+}
+
+canvas.addEventListener('mousedown', handlePointerDown);
+window.addEventListener('mousemove', handlePointerMove);
+window.addEventListener('mouseup', handlePointerUp);
+
+canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
+window.addEventListener('touchmove', handlePointerMove, { passive: false });
+window.addEventListener('touchend', handlePointerUp);
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К') {
+        rotateSelected();
+    }
+});
+
+function applyPreset(num) {
+    clearActivePresetHighlight();
+    const activeBtn = document.querySelector(`.preset-btn[data-preset="${num}"]`);
+    if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-50', 'border-slate-200');
+        activeBtn.classList.add('bg-blue-600', 'text-white', 'border-blue-600');
+    }
+
+    if (num === 1) {
+        // 1. Все 3 секции шкафа в ряд справа
+        setBedSize(145);
+        setWardrobeType('hinged');
+        w1.x = 240; w1.y = 0; w1.rotation = 270;
+        w2.x = 240; w2.y = 75; w2.rotation = 270;
+        w3.x = 240; w3.y = 150; w3.rotation = 270;
+        bed.x = 90; bed.y = 0; bed.rotation = 90;
+        desk.x = 85; desk.y = 270; desk.rotation = 180;
+    } else if (num === 2) {
+        // 2. Секции шкафа отдельно: две справа, одна в другом месте
+        setBedSize(145);
+        setWardrobeType('hinged');
+        w1.x = 240; w1.y = 0; w1.rotation = 270;
+        w2.x = 240; w2.y = 75; w2.rotation = 270;
+        w3.x = 0; w3.y = 0; w3.rotation = 270; // 3-я секция слева
+        desk.x = 80; desk.y = 270; desk.rotation = 180;
+        bed.x = 155; bed.y = 0; bed.rotation = 0;
+    } else if (num === 3) {
+        // 3. Кровать 165 см, секции шкафа по углам
+        setBedSize(165);
+        setWardrobeType('sliding');
+        bed.x = 0; bed.y = 165; bed.rotation = 270;
+        w1.x = 240; w1.y = 0; w1.rotation = 90;
+        w2.x = 240; w2.y = 75; w2.rotation = 90;
+        w3.x = 240; w3.y = 150; w3.rotation = 90;
+        desk.x = 110; desk.y = 0; desk.rotation = 0;
+    } else if (num === 4) {
+        // 4. Г-образное разделение шкафа
+        setBedSize(145);
+        setWardrobeType('hinged');
+        w1.x = 240; w1.y = 0; w1.rotation = 270;
+        w2.x = 240; w2.y = 75; w2.rotation = 270;
+        w3.x = 180; w3.y = 270; w3.rotation = 180; // 3-я секция у нижней стены
+        bed.x = 0; bed.y = 120; bed.rotation = 0;
+        desk.x = 95; desk.y = 0; desk.rotation = 0;
+    } else if (num === 5) {
+        // 5. Разделенный шкаф: 2 секции слева, 1 справа
+        setBedSize(145);
+        setWardrobeType('sliding');
+        w1.x = 0; w1.y = 0; w1.rotation = 90;
+        w2.x = 0; w2.y = 75; w2.rotation = 90;
+        w3.x = 240; w3.y = 0; w3.rotation = 270;
+        bed.x = 95; bed.y = 120; bed.rotation = 0;
+        desk.x = 90; desk.y = 0; desk.rotation = 0;
+    }
+
+    selectedItem = bed;
+    draw();
+}
+
+window.addEventListener('resize', resizeCanvas);
+window.onload = function () {
+    resizeCanvas();
+    applyPreset(1);
+};
+
+function showToast(msg) {
+    const toast = document.getElementById('save-toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 2500);
+}
+
+function saveLayoutToStorage() {
+    try {
+        const state = {
+            bed: { x: bed.x, y: bed.y, rotation: bed.rotation, baseW: bed.baseW },
+            w1: { x: w1.x, y: w1.y, rotation: w1.rotation, type: w1.type },
+            w2: { x: w2.x, y: w2.y, rotation: w2.rotation, type: w2.type },
+            w3: { x: w3.x, y: w3.y, rotation: w3.rotation, type: w3.type },
+            desk: { x: desk.x, y: desk.y, rotation: desk.rotation },
+            door: { width: DOOR.width, swing: DOOR.swing }
+        };
+        localStorage.setItem('mamad_planner_layout_v1', JSON.stringify(state));
+        showToast('✓ Расстановка сохранена в браузере');
+    } catch (e) {
+        showToast('Не удалось сохранить');
+    }
+}
+
+function loadLayoutFromStorage() {
+    try {
+        const raw = localStorage.getItem('mamad_planner_layout_v1');
+        if (!raw) {
+            showToast('Нет сохраненной расстановки');
+            return;
+        }
+        const state = JSON.parse(raw);
+        if (state.bed) {
+            setBedSize(state.bed.baseW || 145);
+            bed.x = state.bed.x; bed.y = state.bed.y; bed.rotation = state.bed.rotation;
+        }
+        if (state.w1) {
+            setWardrobeType(state.w1.type || 'hinged');
+            w1.x = state.w1.x; w1.y = state.w1.y; w1.rotation = state.w1.rotation;
+        }
+        if (state.w2) { w2.x = state.w2.x; w2.y = state.w2.y; w2.rotation = state.w2.rotation; }
+        if (state.w3) { w3.x = state.w3.x; w3.y = state.w3.y; w3.rotation = state.w3.rotation; }
+        if (state.desk) { desk.x = state.desk.x; desk.y = state.desk.y; desk.rotation = state.desk.rotation; }
+        if (state.door) {
+            setDoorWidth(state.door.width || 80);
+            setDoorSwing(state.door.swing || 'out');
+        }
+        clearActivePresetHighlight();
+        draw();
+        showToast('✓ Расстановка загружена');
+    } catch (e) {
+        showToast('Ошибка при загрузке');
+    }
+}
+</script>
+</body>
+</html>
